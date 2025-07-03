@@ -47,18 +47,14 @@ int main() {
 
     std::cout << "RTSP 연결 성공, 프레임 수신 중..." << std::endl;
 
-
-    // ✅ 여기서 저장 파일 경로를 지정
-    std::string filename = "/home/iam/videos/output.avi";
-
-    // ✅ VideoWriter 객체 생성
-    cv::VideoWriter writer(filename,
-                           cv::VideoWriter::fourcc('M','J','P','G'),
-                           30,
-                           cv::Size(FRAME_WIDTH, FRAME_HEIGHT));
+    // ✅ MP4 영상 저장 설정 (코덱: 'mp4v', 파일명: .mp4)
+    std::string savePath = "/home/iam/videos/output.mp4";
+    int fourcc = cv::VideoWriter::fourcc('m', 'p', '4', 'v'); 
+    double fps = 15.0;
+    cv::VideoWriter writer(savePath, fourcc, fps, cv::Size(FRAME_WIDTH, FRAME_HEIGHT));
 
     if (!writer.isOpened()) {
-        std::cerr << "VideoWriter 초기화 실패" << std::endl;
+        std::cerr << "비디오 파일 저장 실패" << std::endl;
         return -1;
     }
 
@@ -68,17 +64,19 @@ int main() {
         cap >> frame;
         if (frame.empty()) continue;
 
-        // 카메라 사이즈와 동일하게 수정
-        std::memcpy(shm_ptr, frame.data, FRAME_SIZE);
+        cv::Mat resized;
+        cv::resize(frame, resized, cv::Size(FRAME_WIDTH, FRAME_HEIGHT));
 
-        writer.write(frame);  // 영상 파일에 프레임 기록
+        // 💾 mp4 저장
+        writer.write(resized);
 
-        // 디버깅용 출력
-        cv::imwrite("rtsp.jpg", frame);
-        if (cv::waitKey(1) == 27) break; // ESC 키 누르면 종료
+        // 📤 공유 메모리 복사
+        std::memcpy(shm_ptr, resized.data, FRAME_SIZE);
+
     }
 
     // ----- 정리 -----
+    writer.release();
     munmap(shm_ptr, FRAME_SIZE);
     close(shm_fd);
     //shm_unlink(SHM_NAME); // 실제 운영 시에는 제거하지 않을 수도 있음
